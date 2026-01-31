@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+target
+**/target
+*.iml
+*.ipr
+*.iws
+.DS_Store
+**/.DS_Store
+.mvn/wrapper/maven-wrapper.jar
+**/*.log
+
