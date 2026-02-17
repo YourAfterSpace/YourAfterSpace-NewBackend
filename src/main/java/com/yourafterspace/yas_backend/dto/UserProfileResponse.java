@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.yourafterspace.yas_backend.model.UserProfile.UserStatus;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 /** Response DTO for user profile data. */
 public class UserProfileResponse {
@@ -25,6 +27,16 @@ public class UserProfileResponse {
   private String company;
   private String bio;
   private String phoneNumber;
+  /**
+   * Questionnaire by category: each category has all questions; each question has an "answer"
+   * field (user's value or null if not answered). Use this for all question/answer data; no separate
+   * flat map is sent in the profile.
+   */
+  private List<CategoryWithQuestionsAndAnswersDto> questionnaireByCategory;
+  /** Per-category completion percentage (e.g. background -> 80.0). */
+  private Map<String, Double> categoryCompletionPercentages;
+  /** Overall profile completion percentage (0–100). */
+  private Double overallProfileCompletionPercentage;
   private UserStatus status;
 
   @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
@@ -145,6 +157,30 @@ public class UserProfileResponse {
 
   public void setPhoneNumber(String phoneNumber) {
     this.phoneNumber = phoneNumber;
+  }
+
+  public List<CategoryWithQuestionsAndAnswersDto> getQuestionnaireByCategory() {
+    return questionnaireByCategory;
+  }
+
+  public void setQuestionnaireByCategory(List<CategoryWithQuestionsAndAnswersDto> questionnaireByCategory) {
+    this.questionnaireByCategory = questionnaireByCategory;
+  }
+
+  public Map<String, Double> getCategoryCompletionPercentages() {
+    return categoryCompletionPercentages;
+  }
+
+  public void setCategoryCompletionPercentages(Map<String, Double> categoryCompletionPercentages) {
+    this.categoryCompletionPercentages = categoryCompletionPercentages;
+  }
+
+  public Double getOverallProfileCompletionPercentage() {
+    return overallProfileCompletionPercentage;
+  }
+
+  public void setOverallProfileCompletionPercentage(Double overallProfileCompletionPercentage) {
+    this.overallProfileCompletionPercentage = overallProfileCompletionPercentage;
   }
 
   public Instant getCreatedAt() {

@@ -4,7 +4,9 @@ import com.yourafterspace.yas_backend.model.UserProfile;
 import com.yourafterspace.yas_backend.model.UserProfile.UserStatus;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -175,6 +177,54 @@ public class UserProfileRepository {
       expressionAttributeNames.put("#status", "status");
       expressionAttributeValues.put(
           ":status", AttributeValue.builder().s(profile.getStatus().getValue()).build());
+    }
+    if (profile.getQuestionnaireAnswers() != null && !profile.getQuestionnaireAnswers().isEmpty()) {
+      updateExpression.append(", #questionnaireAnswers = :questionnaireAnswers");
+      expressionAttributeNames.put("#questionnaireAnswers", "questionnaireAnswers");
+      expressionAttributeValues.put(
+          ":questionnaireAnswers",
+          AttributeValue.builder()
+              .m(toQuestionnaireAnswersMap(profile.getQuestionnaireAnswers()))
+              .build());
+    }
+    if (profile.getQuestionnaireByCategoryJson() != null) {
+      updateExpression.append(", #questionnaireByCategoryJson = :questionnaireByCategoryJson");
+      expressionAttributeNames.put("#questionnaireByCategoryJson", "questionnaireByCategoryJson");
+      expressionAttributeValues.put(
+          ":questionnaireByCategoryJson",
+          AttributeValue.builder().s(profile.getQuestionnaireByCategoryJson()).build());
+    }
+    if (profile.getCategoryCompletionPercentages() != null
+        && !profile.getCategoryCompletionPercentages().isEmpty()) {
+      Map<String, AttributeValue> pctMap = new HashMap<>();
+      for (Map.Entry<String, Double> e : profile.getCategoryCompletionPercentages().entrySet()) {
+        pctMap.put(
+            e.getKey(),
+            AttributeValue.builder().n(String.valueOf(e.getValue())).build());
+      }
+      updateExpression.append(", #categoryCompletionPercentages = :categoryCompletionPercentages");
+      expressionAttributeNames.put("#categoryCompletionPercentages", "categoryCompletionPercentages");
+      expressionAttributeValues.put(
+          ":categoryCompletionPercentages", AttributeValue.builder().m(pctMap).build());
+    }
+    if (profile.getOverallProfileCompletionPercentage() != null) {
+      updateExpression.append(", #overallProfileCompletionPercentage = :overallProfileCompletionPercentage");
+      expressionAttributeNames.put("#overallProfileCompletionPercentage", "overallProfileCompletionPercentage");
+      expressionAttributeValues.put(
+          ":overallProfileCompletionPercentage",
+          AttributeValue.builder()
+              .n(String.valueOf(profile.getOverallProfileCompletionPercentage()))
+              .build());
+    }
+    if (profile.getInterestedExperienceIds() != null) {
+      updateExpression.append(", #interestedExperienceIds = :interestedExperienceIds");
+      expressionAttributeNames.put("#interestedExperienceIds", "interestedExperienceIds");
+      List<AttributeValue> idList =
+          profile.getInterestedExperienceIds().stream()
+              .map(id -> AttributeValue.builder().s(id).build())
+              .toList();
+      expressionAttributeValues.put(
+          ":interestedExperienceIds", AttributeValue.builder().l(idList).build());
     }
 
     UpdateItemRequest.Builder updateRequestBuilder =
@@ -372,6 +422,41 @@ public class UserProfileRepository {
       item.put("status", AttributeValue.builder().s(profile.getStatus().getValue()).build());
     }
 
+    if (profile.getQuestionnaireAnswers() != null && !profile.getQuestionnaireAnswers().isEmpty()) {
+      item.put(
+          "questionnaireAnswers",
+          AttributeValue.builder().m(toQuestionnaireAnswersMap(profile.getQuestionnaireAnswers())).build());
+    }
+    if (profile.getQuestionnaireByCategoryJson() != null) {
+      item.put(
+          "questionnaireByCategoryJson",
+          AttributeValue.builder().s(profile.getQuestionnaireByCategoryJson()).build());
+    }
+    if (profile.getCategoryCompletionPercentages() != null
+        && !profile.getCategoryCompletionPercentages().isEmpty()) {
+      Map<String, AttributeValue> pctMap = new HashMap<>();
+      for (Map.Entry<String, Double> e : profile.getCategoryCompletionPercentages().entrySet()) {
+        pctMap.put(
+            e.getKey(),
+            AttributeValue.builder().n(String.valueOf(e.getValue())).build());
+      }
+      item.put(
+          "categoryCompletionPercentages",
+          AttributeValue.builder().m(pctMap).build());
+    }
+    if (profile.getOverallProfileCompletionPercentage() != null) {
+      item.put(
+          "overallProfileCompletionPercentage",
+          AttributeValue.builder().n(String.valueOf(profile.getOverallProfileCompletionPercentage())).build());
+    }
+    if (profile.getInterestedExperienceIds() != null && !profile.getInterestedExperienceIds().isEmpty()) {
+      List<AttributeValue> idList =
+          profile.getInterestedExperienceIds().stream()
+              .map(id -> AttributeValue.builder().s(id).build())
+              .toList();
+      item.put("interestedExperienceIds", AttributeValue.builder().l(idList).build());
+    }
+
     // createdAt is already added as part of the composite key above
     // updatedAt is a regular attribute
     if (profile.getUpdatedAt() != null) {
@@ -453,6 +538,70 @@ public class UserProfileRepository {
       profile.setUpdatedAt(Instant.parse(item.get("updatedAt").s()));
     }
 
+    if (item.containsKey("questionnaireAnswers")) {
+      profile.setQuestionnaireAnswers(
+          fromQuestionnaireAnswersMap(item.get("questionnaireAnswers").m()));
+    }
+    if (item.containsKey("questionnaireByCategoryJson")) {
+      profile.setQuestionnaireByCategoryJson(item.get("questionnaireByCategoryJson").s());
+    }
+    if (item.containsKey("categoryCompletionPercentages")) {
+      Map<String, Double> pctMap = new HashMap<>();
+      for (Map.Entry<String, AttributeValue> e :
+          item.get("categoryCompletionPercentages").m().entrySet()) {
+        pctMap.put(e.getKey(), Double.valueOf(e.getValue().n()));
+      }
+      profile.setCategoryCompletionPercentages(pctMap);
+    }
+    if (item.containsKey("overallProfileCompletionPercentage")) {
+      profile.setOverallProfileCompletionPercentage(
+          Double.valueOf(item.get("overallProfileCompletionPercentage").n()));
+    }
+    if (item.containsKey("interestedExperienceIds")) {
+      List<String> ids =
+          item.get("interestedExperienceIds").l().stream().map(AttributeValue::s).toList();
+      profile.setInterestedExperienceIds(ids);
+    }
+
     return profile;
+  }
+
+  /**
+   * Convert questionnaire answers (Map with String or List&lt;String&gt; values) to DynamoDB Map
+   * attribute.
+   */
+  private Map<String, AttributeValue> toQuestionnaireAnswersMap(Map<String, Object> answers) {
+    Map<String, AttributeValue> result = new HashMap<>();
+    for (Map.Entry<String, Object> e : answers.entrySet()) {
+      Object v = e.getValue();
+      if (v instanceof String) {
+        result.put(e.getKey(), AttributeValue.builder().s((String) v).build());
+      } else if (v instanceof List) {
+        List<AttributeValue> list = new ArrayList<>();
+        for (Object o : (List<?>) v) {
+          list.add(AttributeValue.builder().s(o == null ? "" : o.toString()).build());
+        }
+        result.put(e.getKey(), AttributeValue.builder().l(list).build());
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Convert DynamoDB Map attribute back to questionnaire answers (String or List of String values).
+   */
+  private Map<String, Object> fromQuestionnaireAnswersMap(Map<String, AttributeValue> map) {
+    Map<String, Object> result = new HashMap<>();
+    for (Map.Entry<String, AttributeValue> e : map.entrySet()) {
+      AttributeValue av = e.getValue();
+      if (av.s() != null) {
+        result.put(e.getKey(), av.s());
+      } else if (av.l() != null) {
+        result.put(
+            e.getKey(),
+            av.l().stream().map(AttributeValue::s).toList());
+      }
+    }
+    return result;
   }
 }
