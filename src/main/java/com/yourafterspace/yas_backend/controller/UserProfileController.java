@@ -1,6 +1,10 @@
 package com.yourafterspace.yas_backend.controller;
 
 import com.yourafterspace.yas_backend.dto.ApiResponse;
+import com.yourafterspace.yas_backend.dto.CategoryWithAnswersResponse;
+import com.yourafterspace.yas_backend.dto.QuestionnaireAnswersRequest;
+import com.yourafterspace.yas_backend.dto.QuestionnaireAnswersResponse;
+import com.yourafterspace.yas_backend.dto.QuestionnaireProgressResponse;
 import com.yourafterspace.yas_backend.dto.UserProfileRequest;
 import com.yourafterspace.yas_backend.dto.UserProfileResponse;
 import com.yourafterspace.yas_backend.dto.UserProfileUpdateRequest;
@@ -76,6 +80,81 @@ public class UserProfileController {
     UserProfileResponse response = userProfileService.getProfile(userId);
 
     return ResponseEntity.ok(ApiResponse.success("User profile retrieved successfully", response));
+  }
+
+  /**
+   * Submit questionnaire answers. Keys must match question ids from GET /v1/questions. Values: one
+   * string for SINGLE_CHOICE, list of strings for MULTIPLE_CHOICE.
+   *
+   * @param request Request containing answers map (e.g. {"gender": "Female", "interests":
+   *     ["Travel", "Music"]})
+   * @return Updated profile including saved answers
+   */
+  @PostMapping("/questionnaire")
+  public ResponseEntity<ApiResponse<UserProfileResponse>> submitQuestionnaire(
+      @Valid @RequestBody QuestionnaireAnswersRequest request) {
+    String userId = userContext.requireCurrentUserId();
+    logger.info("Submitting questionnaire answers for userId: {}", userId);
+
+    UserProfileResponse response =
+        userProfileService.saveQuestionnaireAnswers(userId, request.getAnswers());
+
+    return ResponseEntity.ok(
+        ApiResponse.success("Questionnaire answers saved successfully", response));
+  }
+
+  /**
+   * Get current user's questionnaire answers.
+   *
+   * @return Map of question id to answer (string or list of strings)
+   */
+  @GetMapping("/questionnaire")
+  public ResponseEntity<ApiResponse<QuestionnaireAnswersResponse>> getQuestionnaireAnswers() {
+    String userId = userContext.requireCurrentUserId();
+    logger.info("Fetching questionnaire answers for userId: {}", userId);
+
+    var answers = userProfileService.getQuestionnaireAnswers(userId);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Questionnaire answers retrieved successfully",
+            new QuestionnaireAnswersResponse(answers)));
+  }
+
+  /**
+   * Get one category with its questions and the user's answers for that category only. Use when
+   * opening a category screen so the frontend can show questions and pre-fill existing answers.
+   *
+   * @param categoryId category id (e.g. "background", "interests")
+   * @return category (with questions) and answers map for that category
+   */
+  @GetMapping("/questionnaire/category/{categoryId}")
+  public ResponseEntity<ApiResponse<CategoryWithAnswersResponse>> getCategoryWithAnswers(
+      @PathVariable String categoryId) {
+    String userId = userContext.requireCurrentUserId();
+    logger.info("Fetching category with answers for userId: {}, categoryId: {}", userId, categoryId);
+
+    CategoryWithAnswersResponse response =
+        userProfileService.getCategoryWithAnswers(userId, categoryId);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Category and answers retrieved successfully",
+            response));
+  }
+
+  /**
+   * Get questionnaire progress: per-category completion percentage and total profile completion.
+   *
+   * @return categories (answeredCount, totalCount, percentage each), totalAnswered, totalQuestions,
+   *     totalPercentage
+   */
+  @GetMapping("/questionnaire/progress")
+  public ResponseEntity<ApiResponse<QuestionnaireProgressResponse>> getQuestionnaireProgress() {
+    String userId = userContext.requireCurrentUserId();
+    logger.info("Fetching questionnaire progress for userId: {}", userId);
+
+    QuestionnaireProgressResponse progress = userProfileService.getQuestionnaireProgress(userId);
+    return ResponseEntity.ok(
+        ApiResponse.success("Questionnaire progress retrieved successfully", progress));
   }
 
   /**

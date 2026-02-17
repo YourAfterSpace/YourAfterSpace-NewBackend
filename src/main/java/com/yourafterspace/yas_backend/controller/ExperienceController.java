@@ -91,6 +91,34 @@ public class ExperienceController {
   }
 
   /**
+   * Mark or unmark the current user as interested in an experience.
+   *
+   * <p>PUT /v1/experiences/{experienceId}/interest - Body: {"interested": true} or {"interested":
+   * false}
+   */
+  @PutMapping("/experiences/{experienceId}/interest")
+  public ResponseEntity<ApiResponse<Map<String, Object>>> markExperienceInterest(
+      @PathVariable String experienceId, @RequestBody(required = false) Map<String, Object> body) {
+    String userId = userContext.requireCurrentUserId();
+    boolean interested = true;
+    if (body != null && body.containsKey("interested")) {
+      Object v = body.get("interested");
+      if (v instanceof Boolean) {
+        interested = (Boolean) v;
+      } else if (v instanceof String) {
+        interested = "true".equalsIgnoreCase((String) v) || "1".equals(v);
+      } else if (v instanceof Number) {
+        interested = ((Number) v).intValue() == 1;
+      }
+    }
+    experienceService.markInterested(userId, experienceId, interested);
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            interested ? "Marked as interested" : "Removed from interested",
+            Map.of("experienceId", experienceId, "interested", interested)));
+  }
+
+  /**
    * Create, update, or delete experience (matches Lambda handler behavior).
    *
    * <p>PUT /v1/experiences/{experienceId} - Create or update experience
@@ -180,6 +208,29 @@ public class ExperienceController {
   }
 
   /**
+   * Get all experiences in the database (catalog / listing), optionally filtered by city.
+   *
+   * <p>GET /v1/experiences/all - Returns all experiences
+   *
+   * <p>GET /v1/experiences/all?city=Mumbai - Returns experiences in that city (case-sensitive)
+   */
+  @GetMapping("/experiences/all")
+  public ResponseEntity<ApiResponse<List<ExperienceResponse>>> getAllExperiences(
+      @RequestParam(required = false) String city) {
+    List<ExperienceResponse> experiences;
+    if (city != null && !city.isBlank()) {
+      logger.info("Getting experiences for city: {}", city);
+      experiences = experienceService.getExperiencesByCity(city.trim());
+      return ResponseEntity.ok(
+          ApiResponse.success("Experiences in " + city + " retrieved successfully", experiences));
+    }
+    logger.info("Getting all experiences from database");
+    experiences = experienceService.getAllExperiences();
+    return ResponseEntity.ok(
+        ApiResponse.success("All experiences retrieved successfully", experiences));
+  }
+
+  /**
    * Get experiences based on filters.
    *
    * <p>GET /v1/experiences - Returns all past attended experiences by default
@@ -230,5 +281,18 @@ public class ExperienceController {
     ApiResponse<List<ExperienceResponse>> response =
         ApiResponse.success("No experiences found", List.of());
     return ResponseEntity.ok(response);
+  }
+
+  /**
+   * Get all experiences the current user has marked as interested.
+   *
+   * <p>GET /v1/user/interested-experiences
+   */
+  @GetMapping("/user/interested-experiences")
+  public ResponseEntity<ApiResponse<List<ExperienceResponse>>> getInterestedExperiences() {
+    String userId = userContext.requireCurrentUserId();
+    List<ExperienceResponse> list = experienceService.getInterestedExperiences(userId);
+    return ResponseEntity.ok(
+        ApiResponse.success("Interested experiences retrieved successfully", list));
   }
 }

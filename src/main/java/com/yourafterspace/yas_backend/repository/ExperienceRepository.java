@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 /**
  * Repository for DynamoDB operations on experiences.
@@ -130,6 +133,96 @@ public class ExperienceRepository {
    */
   public boolean existsById(String experienceId) {
     return findById(experienceId).isPresent();
+  }
+
+  /**
+   * Find all experiences in the database (scan for recordType = EXPERIENCE).
+   *
+   * @return List of all experiences
+   */
+  public List<Experience> findAll() {
+    List<Experience> results = new ArrayList<>();
+    Map<String, AttributeValue> lastKey = null;
+
+    do {
+      ScanRequest.Builder scanBuilder =
+          ScanRequest.builder()
+              .tableName(tableName)
+              .filterExpression("#rt = :recordType")
+              .expressionAttributeNames(Map.of("#rt", "recordType"))
+              .expressionAttributeValues(
+                  Map.of(
+                      ":recordType",
+                      AttributeValue.builder().s("EXPERIENCE").build()));
+
+      if (lastKey != null && !lastKey.isEmpty()) {
+        scanBuilder.exclusiveStartKey(lastKey);
+      }
+
+      ScanResponse response = dynamoDbClient.scan(scanBuilder.build());
+
+      for (Map<String, AttributeValue> item : response.items()) {
+        try {
+          results.add(fromAttributeMap(item));
+        } catch (Exception e) {
+          logger.warn("Skipping item that could not be mapped to Experience: {}", e.getMessage());
+        }
+      }
+
+      lastKey = response.lastEvaluatedKey();
+    } while (lastKey != null && !lastKey.isEmpty());
+
+    logger.debug("Found {} experiences in total", results.size());
+    return results;
+  }
+
+  /**
+   * Find all experiences in the given city (scan for recordType = EXPERIENCE and city = city).
+   * City comparison is case-insensitive after fetch (DynamoDB has no case-insensitive filter).
+   *
+   * @param city City name to filter by (e.g. "Mumbai")
+   * @return List of experiences in that city
+   */
+  public List<Experience> findAllByCity(String city) {
+    if (city == null || city.isBlank()) {
+      return findAll();
+    }
+    List<Experience> results = new ArrayList<>();
+    Map<String, AttributeValue> lastKey = null;
+    Map<String, String> attrNames = new HashMap<>();
+    attrNames.put("#rt", "recordType");
+    attrNames.put("#city", "city");
+    Map<String, AttributeValue> attrValues = new HashMap<>();
+    attrValues.put(":recordType", AttributeValue.builder().s("EXPERIENCE").build());
+    attrValues.put(":city", AttributeValue.builder().s(city.trim()).build());
+
+    do {
+      ScanRequest.Builder scanBuilder =
+          ScanRequest.builder()
+              .tableName(tableName)
+              .filterExpression("#rt = :recordType AND #city = :city")
+              .expressionAttributeNames(attrNames)
+              .expressionAttributeValues(attrValues);
+
+      if (lastKey != null && !lastKey.isEmpty()) {
+        scanBuilder.exclusiveStartKey(lastKey);
+      }
+
+      ScanResponse response = dynamoDbClient.scan(scanBuilder.build());
+
+      for (Map<String, AttributeValue> item : response.items()) {
+        try {
+          results.add(fromAttributeMap(item));
+        } catch (Exception e) {
+          logger.warn("Skipping item that could not be mapped to Experience: {}", e.getMessage());
+        }
+      }
+
+      lastKey = response.lastEvaluatedKey();
+    } while (lastKey != null && !lastKey.isEmpty());
+
+    logger.debug("Found {} experiences in city {}", results.size(), city);
+    return results;
   }
 
   /** Convert Experience to DynamoDB AttributeValue map. */

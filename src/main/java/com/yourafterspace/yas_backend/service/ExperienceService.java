@@ -50,4 +50,36 @@ public interface ExperienceService {
    * @return List of upcoming paid experiences
    */
   List<ExperienceResponse> getUpcomingPaidExperiences(String userId);
+
+  /**
+   * Get all experiences in the database (catalog listing).
+   *
+   * @return List of all experiences
+   */
+  List<ExperienceResponse> getAllExperiences();
+
+  /**
+   * Get all experiences in a given city.
+   *
+   * @param city City name (e.g. "Mumbai") – case-sensitive match
+   * @return List of experiences in that city
+   */
+  List<ExperienceResponse> getExperiencesByCity(String city);
+
+  /**
+   * Mark or unmark the current user as interested in an experience (stored on user profile).
+   *
+   * @param userId Current user ID
+   * @param experienceId Experience ID
+   * @param interested true to add to interested list, false to remove
+   */
+  void markInterested(String userId, String experienceId, boolean interested);
+
+  /**
+   * Get all experiences the user has marked as interested.
+   *
+   * @param userId Current user ID
+   * @return List of interested experiences (full details)
+   */
+  List<ExperienceResponse> getInterestedExperiences(String userId);
 }

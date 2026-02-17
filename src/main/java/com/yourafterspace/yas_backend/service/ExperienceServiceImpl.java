@@ -10,14 +10,19 @@ import com.yourafterspace.yas_backend.exception.ResourceNotFoundException;
 import com.yourafterspace.yas_backend.model.Experience;
 import com.yourafterspace.yas_backend.model.Experience.ExperienceStatus;
 import com.yourafterspace.yas_backend.model.UserExperience;
+import com.yourafterspace.yas_backend.model.UserProfile;
 import com.yourafterspace.yas_backend.model.UserExperience.UserExperienceStatus;
 import com.yourafterspace.yas_backend.repository.ExperienceRepository;
+import com.yourafterspace.yas_backend.repository.UserProfileRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -32,14 +37,17 @@ public class ExperienceServiceImpl implements ExperienceService {
   private final ExperienceRepository experienceRepository;
   private final ExperienceDao experienceDao;
   private final UserExperienceDao userExperienceDao;
+  private final UserProfileRepository userProfileRepository;
 
   public ExperienceServiceImpl(
       ExperienceRepository experienceRepository,
       ExperienceDao experienceDao,
-      UserExperienceDao userExperienceDao) {
+      UserExperienceDao userExperienceDao,
+      UserProfileRepository userProfileRepository) {
     this.experienceRepository = experienceRepository;
     this.experienceDao = experienceDao;
     this.userExperienceDao = userExperienceDao;
+    this.userProfileRepository = userProfileRepository;
   }
 
   @Override
@@ -281,5 +289,72 @@ public class ExperienceServiceImpl implements ExperienceService {
     logger.info(
         "Found {} upcoming paid experiences for user {}", upcomingExperiences.size(), userId);
     return upcomingExperiences;
+  }
+
+  @Override
+  public List<ExperienceResponse> getAllExperiences() {
+    logger.debug("Getting all experiences from database");
+    List<Experience> experiences = experienceRepository.findAll();
+    List<ExperienceResponse> responses = new ArrayList<>();
+    for (Experience exp : experiences) {
+      responses.add(mapExperienceToResponse(exp));
+    }
+    logger.info("Returning {} experiences", responses.size());
+    return responses;
+  }
+
+  @Override
+  public List<ExperienceResponse> getExperiencesByCity(String city) {
+    logger.debug("Getting experiences for city: {}", city);
+    List<Experience> experiences = experienceRepository.findAllByCity(city);
+    List<ExperienceResponse> responses = new ArrayList<>();
+    for (Experience exp : experiences) {
+      responses.add(mapExperienceToResponse(exp));
+    }
+    logger.info("Returning {} experiences for city {}", responses.size(), city);
+    return responses;
+  }
+
+  @Override
+  public void markInterested(String userId, String experienceId, boolean interested) {
+    findExperienceById(experienceId); // ensure experience exists
+    UserProfile profile =
+        userProfileRepository.findByUserId(userId).orElseGet(() -> new UserProfile(userId));
+    Set<String> ids =
+        new LinkedHashSet<>(
+            profile.getInterestedExperienceIds() != null
+                ? profile.getInterestedExperienceIds()
+                : List.of());
+    if (interested) {
+      ids.add(experienceId);
+    } else {
+      ids.remove(experienceId);
+    }
+    profile.setInterestedExperienceIds(List.copyOf(ids));
+    profile.setUpdatedAt(Instant.now());
+    userProfileRepository.save(profile);
+    logger.info(
+        "User {} {} experience {} as interested",
+        userId,
+        interested ? "marked" : "unmarked",
+        experienceId);
+  }
+
+  @Override
+  public List<ExperienceResponse> getInterestedExperiences(String userId) {
+    Optional<UserProfile> profileOpt = userProfileRepository.findByUserId(userId);
+    List<String> ids =
+        profileOpt
+            .map(UserProfile::getInterestedExperienceIds)
+            .filter(list -> list != null && !list.isEmpty())
+            .orElse(List.of());
+    List<ExperienceResponse> result = new ArrayList<>();
+    for (String experienceId : ids) {
+      experienceRepository
+          .findById(experienceId)
+          .map(this::mapExperienceToResponse)
+          .ifPresent(result::add);
+    }
+    return result;
   }
 }

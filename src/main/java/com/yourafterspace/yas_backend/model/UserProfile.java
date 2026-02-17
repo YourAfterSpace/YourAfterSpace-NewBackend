@@ -3,6 +3,8 @@ package com.yourafterspace.yas_backend.model;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 /**
  * User profile entity stored in DynamoDB.
@@ -26,7 +28,20 @@ public class UserProfile {
   private String company;
   private String bio;
   private String phoneNumber;
+  /** Questionnaire answers: key = question id, value = single string or list of strings */
+  private Map<String, Object> questionnaireAnswers;
+  /**
+   * Questionnaire stored by category: each category has questions, each question has an "answer"
+   * field (or null). JSON string of List of CategoryWithQuestionsAndAnswersDto.
+   */
+  private String questionnaireByCategoryJson;
+  /** Per-category completion percentage (e.g. background -> 80.0). Stored in profile. */
+  private Map<String, Double> categoryCompletionPercentages;
+  /** Overall profile completion percentage (0–100). Stored in profile. */
+  private Double overallProfileCompletionPercentage;
   private UserStatus status;
+  /** Experience IDs the user has marked as interested (e.g. for wishlist). */
+  private List<String> interestedExperienceIds;
   private Instant createdAt;
   private Instant updatedAt;
 
@@ -154,6 +169,38 @@ public class UserProfile {
     this.phoneNumber = phoneNumber;
   }
 
+  public Map<String, Object> getQuestionnaireAnswers() {
+    return questionnaireAnswers;
+  }
+
+  public void setQuestionnaireAnswers(Map<String, Object> questionnaireAnswers) {
+    this.questionnaireAnswers = questionnaireAnswers;
+  }
+
+  public String getQuestionnaireByCategoryJson() {
+    return questionnaireByCategoryJson;
+  }
+
+  public void setQuestionnaireByCategoryJson(String questionnaireByCategoryJson) {
+    this.questionnaireByCategoryJson = questionnaireByCategoryJson;
+  }
+
+  public Map<String, Double> getCategoryCompletionPercentages() {
+    return categoryCompletionPercentages;
+  }
+
+  public void setCategoryCompletionPercentages(Map<String, Double> categoryCompletionPercentages) {
+    this.categoryCompletionPercentages = categoryCompletionPercentages;
+  }
+
+  public Double getOverallProfileCompletionPercentage() {
+    return overallProfileCompletionPercentage;
+  }
+
+  public void setOverallProfileCompletionPercentage(Double overallProfileCompletionPercentage) {
+    this.overallProfileCompletionPercentage = overallProfileCompletionPercentage;
+  }
+
   public Instant getCreatedAt() {
     return createdAt;
   }
@@ -176,6 +223,14 @@ public class UserProfile {
 
   public void setStatus(UserStatus status) {
     this.status = status;
+  }
+
+  public List<String> getInterestedExperienceIds() {
+    return interestedExperienceIds;
+  }
+
+  public void setInterestedExperienceIds(List<String> interestedExperienceIds) {
+    this.interestedExperienceIds = interestedExperienceIds;
   }
 
   /**

@@ -38,6 +38,9 @@ build/
 .env.*.local
 *.env
 
+### Local run script (contains AWS keys - do not commit) ###
+run-local.ps1
+
 ### Test coverage reports ###
 target/site/jacoco/
 
